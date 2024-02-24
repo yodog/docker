@@ -1,0 +1,97 @@
+# 1- this file follows the docker-compose style but its intended to be used in docker swarm mode
+# 2- you will have to make some adaptations to have it working in compose mode
+# 3- it works perfectly on linux; never tested it on windows
+# 4- it installs the entire *arr stack; you can comment out the blocks you dont want running
+
+x-env: 
+  environment: &env
+    NODEHOSTIP: ${HOSTIP}
+    NODEHOSTNAME: '{{.Node.Hostname}}'
+    PGID: 1000
+    PUID: 1000
+    TZ: America/Sao_Paulo
+
+x-hosts: 
+  extra_hosts: &hosts
+    - "host.docker.internal:host-gateway"
+    - "host.docker.internal:${HOSTIP}"
+
+networks:
+  intercontainers:
+    external: true
+
+services:
+  bazarr:
+    image: ghcr.io/hotio/bazarr
+    environment: *env
+    networks: [ intercontainers ]
+    ports: [ 6767:6767 ]
+    extra_hosts: *hosts
+    volumes:
+      - /docker-volumes/bazarr:/config
+      - /data:/data
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr
+    environment: *env
+    networks: [ intercontainers ]
+    ports: [ 8191:8191 ]
+    extra_hosts: *hosts
+
+  prowlarr:
+    image: ghcr.io/hotio/prowlarr:testing
+    environment: *env
+    networks: [ intercontainers ]
+    ports: [ 9696:9696 ]
+    extra_hosts: *hosts
+    volumes:
+      - /docker-volumes/prowlarr:/config
+      - /data:/data
+
+  radarr:
+    image: ghcr.io/hotio/radarr:testing
+    environment: *env
+    networks: [ intercontainers ]
+    ports: [ 7878:7878 ]
+    extra_hosts: *hosts
+    volumes:
+      - /docker-volumes/radarr:/config
+      - /data:/data
+
+  sonarr:
+    image: ghcr.io/hotio/sonarr:nightly
+    environment: *env
+    networks: [ intercontainers ]
+    ports: [ 8989:8989 ]
+    extra_hosts: *hosts
+    volumes:
+      - /docker-volumes/sonarr:/config
+      - /data:/data
+
+  tdarr:
+    image: ghcr.io/haveagitgat/tdarr
+    networks: [ intercontainers ]
+    ports: [ 8265:8265, 8266:8266 ]
+    extra_hosts: *hosts
+    environment:
+      <<:  *env
+      ffmpegVersion: '6'
+      inContainer: 'true'
+      internalNode: 'true'
+      NVIDIA_DRIVER_CAPABILITIES: all
+      NVIDIA_VISIBLE_DEVICES: all
+    volumes:
+      - /data/media:/media
+      - /data/transcode:/tmp
+      - /docker-volumes/tdarr:/app/configs
+      - /docker-volumes/tdarr:/app/logs
+      - /docker-volumes/tdarr:/app/server
+
+  unpackerr:
+    image: ghcr.io/hotio/unpackerr
+    environment: *env
+    networks: [ intercontainers ]
+    extra_hosts: *hosts
+    volumes:
+      - /docker-volumes/unpackerr:/config
+      - /data:/data
