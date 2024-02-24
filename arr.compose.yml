@@ -1,0 +1,46 @@
+# 1- this is a docker-compose file; will not work in swarm mode unless you make some adjustments 
+# 2- this is running on my windows machine; never tested it on linux
+# 3- this is a tdarr node with samba network volumes mounted as local inside the container
+#    this allows me to connect the node to the server without any "path translation"
+#    the tdarr node service thinks all files are local, when in fact they are all in the tdarr server (shared using samba)
+
+volumes:
+  tdarr:
+  media:
+    driver_opts:
+      type: cifs
+      o: username=usuario,password=mysambapassword,uid=1000,gid=1000
+      device: //192.168.100.39/data/media
+  transcode:
+    driver_opts:
+      type: cifs
+      o: username=usuario,password=mysambapassword,uid=1000,gid=1000
+      device: //192.168.100.39/data/transcode
+
+services:
+  tdarr-node:
+    image: ghcr.io/haveagitgat/tdarr_node
+    container_name: tdarr-node
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - TZ=America/Sao_Paulo
+      - serverIP=192.168.100.39
+      - serverPort=8266
+      - inContainer=true
+      - ffmpegVersion=6
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - media:/media
+      - transcode:/tmp
+      - tdarr:/app/configs
+      - tdarr:/app/server
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
